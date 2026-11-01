@@ -1,0 +1,1355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ConnectBD - Connect Bangladesh & Beyond</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        bdGreen: {
+                            50: '#e6f7f0',
+                            100: '#c3ebdb',
+                            500: '#006a4e',
+                            600: '#00543e',
+                            700: '#003e2e',
+                        },
+                        bdRed: {
+                            500: '#f42a41',
+                        },
+                        bdBlue: {
+                            500: '#1877f2',
+                            600: '#166fe5',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- React & React DOM -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+    <!-- Babel for JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', 'Hind Siliguri', sans-serif;
+        }
+        /* Custom scrollbar for chat & feed */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(156, 163, 175, 0.4);
+            border-radius: 9999px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(107, 114, 128, 0.7);
+        }
+        .reaction-popup {
+            animation: popUp 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+        @keyframes popUp {
+            from { opacity: 0; transform: translateY(10px) scale(0.8); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-100 transition-colors duration-200">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        // --- MOCK DATABASE & DEMO DATA ---
+        const DEMO_USERS = [
+            {
+                id: 'u1',
+                name: 'Rafiqul Islam',
+                nameBn: 'রফিকুল ইসলাম',
+                avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+                cover: 'https://images.unsplash.com/photo-1578894381163-e72c17f2d45f?w=1000&auto=format&fit=crop&q=80',
+                bio: 'Software Engineer from Dhaka. Passionate about AI & Cricket! 🏏',
+                location: 'Dhaka, Bangladesh',
+                friendsCount: 1420,
+                followersCount: 2850,
+                isOnline: true,
+                status: 'active'
+            },
+            {
+                id: 'u2',
+                name: 'Anika Nawar',
+                nameBn: 'আনিকা নাওয়ার',
+                avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80',
+                cover: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1000&auto=format&fit=crop&q=80',
+                bio: 'Traveler & Photographer 📸 Explore beauty of Sylhet & Cox’s Bazar',
+                location: 'Sylhet, Bangladesh',
+                friendsCount: 890,
+                followersCount: 1940,
+                isOnline: true,
+                status: 'active'
+            },
+            {
+                id: 'u3',
+                name: 'Sabbir Hossain',
+                nameBn: 'সাব্বির হোসেন',
+                avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
+                cover: 'https://images.unsplash.com/photo-1519681393784-d120267933ba?w=1000&auto=format&fit=crop&q=80',
+                bio: 'Entrepreneur | Tech Enthusiast | Founder @ BDTechLabs',
+                location: 'Chittagong, Bangladesh',
+                friendsCount: 2100,
+                followersCount: 5400,
+                isOnline: false,
+                status: 'active'
+            }
+        ];
+
+        const INITIAL_POSTS = [
+            {
+                id: 'p1',
+                userId: 'u2',
+                authorName: 'Anika Nawar',
+                authorAvatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80',
+                timestamp: '2 hours ago',
+                content: 'Beautiful afternoon at Ratargul Swamp Forest, Sylhet! Nature in Bangladesh is truly magical. 🌿💚 #SylhetTourism #BeautifulBangladesh',
+                image: 'https://images.unsplash.com/photo-1588668214407-6ea9a6d8c272?w=800&auto=format&fit=crop&q=80',
+                reactions: { like: 142, love: 98, haha: 2, wow: 34, sad: 0, angry: 0 },
+                userReaction: 'love',
+                comments: [
+                    { id: 'c1', userId: 'u1', userName: 'Rafiqul Islam', userAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80', text: 'Stunning capture, Anika! Did you rent a boat there?', timestamp: '1 hour ago' },
+                    { id: 'c2', userId: 'u2', userName: 'Anika Nawar', userAvatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80', text: 'Yes, local wooden boats are available right at the point!', timestamp: '45 mins ago' }
+                ],
+                sharesCount: 18,
+                privacy: 'public'
+            },
+            {
+                id: 'p2',
+                userId: 'u3',
+                authorName: 'Sabbir Hossain',
+                authorAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
+                timestamp: '5 hours ago',
+                content: 'Excited to announce our upcoming Tech Meetup in Dhaka next week! We will be discussing AI integration in local Bangladeshi startups. Who is joining? 🚀🇧🇩 #DhakaTech #StartupBD',
+                image: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=800&auto=format&fit=crop&q=80',
+                reactions: { like: 85, love: 45, haha: 0, wow: 12, sad: 0, angry: 0 },
+                userReaction: 'like',
+                comments: [
+                    { id: 'c3', userId: 'u1', userName: 'Rafiqul Islam', userAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80', text: 'Count me in! Looking forward to networking.', timestamp: '3 hours ago' }
+                ],
+                sharesCount: 29,
+                privacy: 'public'
+            }
+        ];
+
+        const INITIAL_STORIES = [
+            { id: 's1', userId: 'u1', name: 'Rafiqul', avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80', media: 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=600&auto=format&fit=crop&q=80', type: 'image' },
+            { id: 's2', userId: 'u2', name: 'Anika', avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80', media: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=600&auto=format&fit=crop&q=80', type: 'image' },
+            { id: 's3', userId: 'u3', name: 'Sabbir', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80', media: 'https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=600&auto=format&fit=crop&q=80', type: 'image' }
+        ];
+
+        const INITIAL_GROUPS = [
+            { id: 'g1', name: 'Tech Community BD', members: '14.2k members', cover: 'https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=400&auto=format&fit=crop&q=80', category: 'Technology', joined: true },
+            { id: 'g2', name: 'Travel Bangladesh', members: '88.5k members', cover: 'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?w=400&auto=format&fit=crop&q=80', category: 'Travel', joined: false },
+            { id: 'g3', name: 'Bangladesh Cricket Fans', members: '120k members', cover: 'https://images.unsplash.com/photo-1531415074968-036ba1b575da?w=400&auto=format&fit=crop&q=80', category: 'Sports', joined: true }
+        ];
+
+        const INITIAL_NOTIFICATIONS = [
+            { id: 'n1', user: 'Anika Nawar', avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80', action: 'loved your photo post.', time: '10m ago', read: false },
+            { id: 'n2', user: 'Sabbir Hossain', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80', action: 'commented on your status.', time: '1h ago', read: false },
+            { id: 'n3', user: 'Tech Community BD', avatar: 'https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=150&auto=format&fit=crop&q=80', action: 'posted new trending discussion.', time: '3h ago', read: true }
+        ];
+
+        // --- TRANSLATION DICTIONARY ---
+        const I18N = {
+            en: {
+                appName: 'ConnectBD',
+                searchPlaceholder: 'Search ConnectBD...',
+                home: 'Home',
+                friends: 'Friends',
+                groups: 'Groups',
+                notifications: 'Notifications',
+                profile: 'Profile',
+                createPost: 'What\'s on your mind?',
+                liveVideo: 'Live Video',
+                photoVideo: 'Photo/Video',
+                feeling: 'Feeling/Activity',
+                post: 'Post',
+                like: 'Like',
+                comment: 'Comment',
+                share: 'Share',
+                writeComment: 'Write a comment...',
+                trending: 'Trending in BD',
+                suggestedFriends: 'Suggested Friends',
+                friendRequests: 'Friend Requests',
+                accept: 'Accept',
+                decline: 'Decline',
+                addFriend: 'Add Friend',
+                following: 'Following',
+                messages: 'Messages',
+                typeMessage: 'Type a message...',
+                stories: 'Stories',
+                createStory: 'Create Story',
+                editProfile: 'Edit Profile',
+                saveChanges: 'Save Changes',
+                bio: 'Bio',
+                location: 'Location',
+                coverPhoto: 'Cover Photo',
+                profilePhoto: 'Profile Photo',
+                report: 'Report Post',
+                block: 'Block User',
+                language: 'বাংলা',
+                lightMode: 'Light Mode',
+                darkMode: 'Dark Mode',
+                activeNow: 'Active Now',
+                joined: 'Joined',
+                joinGroup: 'Join Group',
+                switchUser: 'Switch User Profile'
+            },
+            bn: {
+                appName: 'কানেক্ট বিডি',
+                searchPlaceholder: 'কানেক্ট বিডি-তে খুঁজুন...',
+                home: 'হোম',
+                friends: 'বন্ধুগণ',
+                groups: 'গ্রুপসমূহ',
+                notifications: 'বিজ্ঞপ্তি',
+                profile: 'প্রোফাইল',
+                createPost: 'আপনার মনে কী আছে?',
+                liveVideo: 'লাইভ ভিডিও',
+                photoVideo: 'ছবি/ভিডিও',
+                feeling: 'অনুভূতি/কার্যক্রম',
+                post: 'পোস্ট করুন',
+                like: 'লাইক',
+                comment: 'কমেন্ট',
+                share: 'শেয়ার',
+                writeComment: 'একটি কমেন্ট লিখুন...',
+                trending: 'বাংলাদেশের ট্রেন্ডিং',
+                suggestedFriends: 'পরামর্শকৃত বন্ধু',
+                friendRequests: 'ফ্রেন্ড রিকুয়েস্ট',
+                accept: 'গ্রহণ করুন',
+                decline: 'মুছে ফেলুন',
+                addFriend: 'এড ফ্রেন্ড',
+                following: 'ফলো করছেন',
+                messages: 'মেসেজসমূহ',
+                typeMessage: 'মেসেজ লিখুন...',
+                stories: 'স্টোরিজ',
+                createStory: 'স্টোরি তৈরি করুন',
+                editProfile: 'প্রোফাইল এডিট করুন',
+                saveChanges: 'পরিবর্তন সেভ করুন',
+                bio: 'বায়ো',
+                location: 'অবস্থান',
+                coverPhoto: 'কভার ফটো',
+                profilePhoto: 'প্রোফাইল ফটো',
+                report: 'পোস্ট রিপোর্ট করুন',
+                block: 'ব্লক করুন',
+                language: 'English',
+                lightMode: 'লাইটে মোড',
+                darkMode: 'ডার্ক মোড',
+                activeNow: 'এখন সক্রিয়',
+                joined: 'যুক্ত হয়েছেন',
+                joinGroup: 'গ্রুপে যুক্ত হন',
+                switchUser: 'ব্যবহারকারী সুইচ করুন'
+            }
+        };
+
+        // --- MAIN APP COMPONENT ---
+        function App() {
+            // State initialization
+            const [lang, setLang] = useState('en');
+            const [darkMode, setDarkMode] = useState(false);
+            const [activeTab, setActiveTab] = useState('home'); // home, profile, friends, groups, notifications
+            const [currentUser, setCurrentUser] = useState(DEMO_USERS[0]);
+            
+            // App Core States
+            const [posts, setPosts] = useState(INITIAL_POSTS);
+            const [stories, setStories] = useState(INITIAL_STORIES);
+            const [groups, setGroups] = useState(INITIAL_GROUPS);
+            const [notifications, setNotifications] = useState(INITIAL_NOTIFICATIONS);
+            const [usersList, setUsersList] = useState(DEMO_USERS);
+            const [friendRequests, setFriendRequests] = useState([
+                { id: 'fr1', name: 'Tanvir Ahmed', avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80', mutual: 14 }
+            ]);
+
+            // Interactive UI Modals & Drawers
+            const [activeStoryModal, setActiveStoryModal] = useState(null);
+            const [isCreatePostOpen, setIsCreatePostOpen] = useState(false);
+            const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
+            const [isCreateGroupOpen, setIsCreateGroupOpen] = useState(false);
+            const [activeChatUser, setActiveChatUser] = useState(null);
+            const [searchQuery, setSearchQuery] = useState('');
+            const [selectedTag, setSelectedTag] = useState('');
+            const [activeReactionPostId, setActiveReactionPostId] = useState(null);
+
+            // Toast Alert state
+            const [toast, setToast] = useState(null);
+
+            const t = I18N[lang];
+
+            const showToast = (msg) => {
+                setToast(msg);
+                setTimeout(() => setToast(null), 3000);
+            };
+
+            // Toggle Dark Mode
+            useEffect(() => {
+                if (darkMode) {
+                    document.documentElement.classList.add('dark');
+                } else {
+                    document.documentElement.classList.remove('dark');
+                }
+            }, [darkMode]);
+
+            // Handle Post Creation
+            const handleAddPost = (newPostData) => {
+                const newPost = {
+                    id: 'p_' + Date.now(),
+                    userId: currentUser.id,
+                    authorName: currentUser.name,
+                    authorAvatar: currentUser.avatar,
+                    timestamp: 'Just now',
+                    content: newPostData.content,
+                    image: newPostData.image || null,
+                    reactions: { like: 0, love: 0, haha: 0, wow: 0, sad: 0, angry: 0 },
+                    userReaction: null,
+                    comments: [],
+                    sharesCount: 0,
+                    privacy: newPostData.privacy || 'public'
+                };
+                setPosts([newPost, ...posts]);
+                setIsCreatePostOpen(false);
+                showToast(lang === 'en' ? 'Post published successfully!' : 'পোস্ট সফলভাবে প্রকাশিত হয়েছে!');
+            };
+
+            // Handle Post Reaction
+            const handleReaction = (postId, reactionType) => {
+                setPosts(posts.map(post => {
+                    if (post.id === postId) {
+                        const updatedReactions = { ...post.reactions };
+                        
+                        // If user already reacted with same type, remove it
+                        if (post.userReaction === reactionType) {
+                            updatedReactions[reactionType] = Math.max(0, updatedReactions[reactionType] - 1);
+                            return { ...post, reactions: updatedReactions, userReaction: null };
+                        }
+
+                        // Remove existing reaction if any
+                        if (post.userReaction) {
+                            updatedReactions[post.userReaction] = Math.max(0, updatedReactions[post.userReaction] - 1);
+                        }
+
+                        // Add new reaction
+                        updatedReactions[reactionType] = (updatedReactions[reactionType] || 0) + 1;
+                        return { ...post, reactions: updatedReactions, userReaction: reactionType };
+                    }
+                    return post;
+                }));
+                setActiveReactionPostId(null);
+            };
+
+            // Add Comment to Post
+            const handleAddComment = (postId, commentText) => {
+                if (!commentText.trim()) return;
+                setPosts(posts.map(p => {
+                    if (p.id === postId) {
+                        const newComment = {
+                            id: 'c_' + Date.now(),
+                            userId: currentUser.id,
+                            userName: currentUser.name,
+                            userAvatar: currentUser.avatar,
+                            text: commentText,
+                            timestamp: 'Just now'
+                        };
+                        return { ...p, comments: [...p.comments, newComment] };
+                    }
+                    return p;
+                }));
+            };
+
+            // Handle Story Upload
+            const handleAddStory = (mediaUrl) => {
+                const newStory = {
+                    id: 's_' + Date.now(),
+                    userId: currentUser.id,
+                    name: currentUser.name.split(' ')[0],
+                    avatar: currentUser.avatar,
+                    media: mediaUrl || 'https://images.unsplash.com/photo-1518684079-3c830dcef090?w=600&auto=format&fit=crop&q=80',
+                    type: 'image'
+                };
+                setStories([newStory, ...stories]);
+                showToast(lang === 'en' ? 'Story added successfully!' : 'স্টোরি যুক্ত করা হয়েছে!');
+            };
+
+            // Switch Demo Accounts
+            const handleSwitchUser = (user) => {
+                setCurrentUser(user);
+                showToast(`${lang === 'en' ? 'Switched profile to' : 'প্রোফাইল পরিবর্তন করা হয়েছে:'} ${user.name}`);
+            };
+
+            // Filter Posts by Search & Hashtags
+            const filteredPosts = posts.filter(post => {
+                const query = searchQuery.toLowerCase() || selectedTag.toLowerCase();
+                if (!query) return true;
+                return post.content.toLowerCase().includes(query) || post.authorName.toLowerCase().includes(query);
+            });
+
+            return (
+                <div class="min-h-screen flex flex-col bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-100 font-sans">
+                    {/* Toast Alert */}
+                    {toast && (
+                        <div class="fixed top-16 right-5 z-50 bg-bdGreen-600 text-white px-4 py-2.5 rounded-lg shadow-lg flex items-center gap-2 animate-bounce">
+                            <i class="fa-solid fa-circle-check"></i>
+                            <span>{toast}</span>
+                        </div>
+                    )}
+
+                    {/* TOP NAVBAR */}
+                    <header class="sticky top-0 z-40 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm px-4 py-2 flex items-center justify-between">
+                        {/* Left Logo & Search */}
+                        <div class="flex items-center gap-3">
+                            <div class="flex items-center gap-2 cursor-pointer" onClick={() => setActiveTab('home')}>
+                                <div class="w-10 h-10 rounded-full bg-bdGreen-500 text-white font-bold text-xl flex items-center justify-center shadow-md">
+                                    BD
+                                </div>
+                                <span class="hidden sm:inline font-bold text-xl tracking-tight text-bdGreen-600 dark:text-bdGreen-500">
+                                    Connect<span class="text-bdRed-500">BD</span>
+                                </span>
+                            </div>
+                            <div class="relative flex items-center">
+                                <i class="fa-solid fa-magnifying-glass absolute left-3 text-gray-400"></i>
+                                <input 
+                                    type="text" 
+                                    placeholder={t.searchPlaceholder}
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    class="pl-9 pr-4 py-2 bg-gray-100 dark:bg-gray-700 rounded-full text-sm w-40 sm:w-64 focus:outline-none focus:ring-2 focus:ring-bdGreen-500 dark:text-gray-100"
+                                />
+                                {(searchQuery || selectedTag) && (
+                                    <button onClick={() => { setSearchQuery(''); setSelectedTag(''); }} class="absolute right-3 text-xs text-gray-400 hover:text-gray-600">
+                                        <i class="fa-solid fa-xmark"></i>
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Navigation Tabs (Desktop Center) */}
+                        <nav class="hidden md:flex items-center gap-2">
+                            {[
+                                { id: 'home', icon: 'fa-house', label: t.home },
+                                { id: 'friends', icon: 'fa-user-group', label: t.friends },
+                                { id: 'groups', icon: 'fa-users', label: t.groups },
+                                { id: 'notifications', icon: 'fa-bell', label: t.notifications, badge: notifications.filter(n => !n.read).length }
+                            ].map(tab => (
+                                <button 
+                                    key={tab.id}
+                                    onClick={() => setActiveTab(tab.id)}
+                                    class={`relative px-5 py-2.5 rounded-lg flex items-center gap-2 font-medium transition-all ${
+                                        activeTab === tab.id 
+                                        ? 'text-bdGreen-600 dark:text-bdGreen-500 bg-bdGreen-50 dark:bg-gray-700 border-b-2 border-bdGreen-500' 
+                                        : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                                    }`}
+                                >
+                                    <i class={`fa-solid ${tab.icon} text-lg`}></i>
+                                    {tab.badge > 0 && (
+                                        <span class="absolute top-1 right-2 bg-bdRed-500 text-white text-xs px-1.5 py-0.5 rounded-full font-bold">
+                                            {tab.badge}
+                                        </span>
+                                    )}
+                                </button>
+                            ))}
+                        </nav>
+
+                        {/* Right Tools & Profile Switcher */}
+                        <div class="flex items-center gap-2 sm:gap-3">
+                            {/* Language Switcher */}
+                            <button 
+                                onClick={() => setLang(lang === 'en' ? 'bn' : 'en')} 
+                                class="px-2.5 py-1.5 rounded-full text-xs font-semibold bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition"
+                                title="Switch Language"
+                            >
+                                <i class="fa-solid fa-globe mr-1"></i>
+                                {t.language}
+                            </button>
+
+                            {/* Dark Mode Toggle */}
+                            <button 
+                                onClick={() => setDarkMode(!darkMode)}
+                                class="w-9 h-9 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-gray-600 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600 transition"
+                            >
+                                <i class={`fa-solid ${darkMode ? 'fa-sun text-amber-400' : 'fa-moon'}`}></i>
+                            </button>
+
+                            {/* Messenger Drawer Toggle */}
+                            <button 
+                                onClick={() => setActiveChatUser(DEMO_USERS[1])}
+                                class="w-9 h-9 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-gray-600 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600 transition relative"
+                            >
+                                <i class="fa-brands fa-facebook-messenger text-lg"></i>
+                                <span class="absolute top-0 right-0 w-2.5 h-2.5 bg-green-500 border-2 border-white dark:border-gray-800 rounded-full"></span>
+                            </button>
+
+                            {/* Profile Menu & User Switcher */}
+                            <div class="relative group">
+                                <div 
+                                    onClick={() => setActiveTab('profile')}
+                                    class="flex items-center gap-2 cursor-pointer p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
+                                >
+                                    <img src={currentUser.avatar} alt="Profile" class="w-9 h-9 rounded-full object-cover border border-bdGreen-500" />
+                                </div>
+                            </div>
+                        </div>
+                    </header>
+
+                    {/* BODY MAIN CONTAINER */}
+                    <div class="flex-1 max-w-7xl w-full mx-auto px-2 sm:px-4 py-4 flex gap-4">
+                        
+                        {/* LEFT SIDEBAR (Desktop) */}
+                        <aside class="hidden lg:block w-64 shrink-0 space-y-4">
+                            {/* User Short Profile Card */}
+                            <div 
+                                onClick={() => setActiveTab('profile')}
+                                class="bg-white dark:bg-gray-800 p-3 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 flex items-center gap-3 cursor-pointer hover:shadow-md transition"
+                            >
+                                <img src={currentUser.avatar} class="w-12 h-12 rounded-full object-cover" />
+                                <div>
+                                    <h4 class="font-semibold text-sm leading-tight">{lang === 'bn' ? currentUser.nameBn : currentUser.name}</h4>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400 truncate">{currentUser.location}</p>
+                                </div>
+                            </div>
+
+                            {/* Switch Account Widget */}
+                            <div class="bg-white dark:bg-gray-800 p-3 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+                                <span class="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-2">{t.switchUser}</span>
+                                <div class="space-y-2">
+                                    {usersList.map(u => (
+                                        <div 
+                                            key={u.id}
+                                            onClick={() => handleSwitchUser(u)}
+                                            class={`flex items-center justify-between p-2 rounded-lg cursor-pointer transition ${currentUser.id === u.id ? 'bg-bdGreen-50 dark:bg-gray-700 border border-bdGreen-500' : 'hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+                                        >
+                                            <div class="flex items-center gap-2">
+                                                <img src={u.avatar} class="w-7 h-7 rounded-full object-cover" />
+                                                <span class="text-xs font-medium">{u.name}</span>
+                                            </div>
+                                            {currentUser.id === u.id && <i class="fa-solid fa-circle-check text-bdGreen-500 text-xs"></i>}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Sidebar Links */}
+                            <div class="bg-white dark:bg-gray-800 p-2 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 space-y-1">
+                                <button onClick={() => setActiveTab('home')} class={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition ${activeTab === 'home' ? 'bg-bdGreen-50 dark:bg-gray-700 text-bdGreen-600' : 'hover:bg-gray-100 dark:hover:bg-gray-700'}`}>
+                                    <i class="fa-solid fa-newspaper text-bdGreen-500 text-lg"></i>
+                                    <span>News Feed</span>
+                                </button>
+                                <button onClick={() => setActiveTab('friends')} class={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition ${activeTab === 'friends' ? 'bg-bdGreen-50 dark:bg-gray-700 text-bdGreen-600' : 'hover:bg-gray-100 dark:hover:bg-gray-700'}`}>
+                                    <i class="fa-solid fa-user-group text-blue-500 text-lg"></i>
+                                    <span>{t.friends}</span>
+                                </button>
+                                <button onClick={() => setActiveTab('groups')} class={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition ${activeTab === 'groups' ? 'bg-bdGreen-50 dark:bg-gray-700 text-bdGreen-600' : 'hover:bg-gray-100 dark:hover:bg-gray-700'}`}>
+                                    <i class="fa-solid fa-users text-purple-500 text-lg"></i>
+                                    <span>{t.groups}</span>
+                                </button>
+                            </div>
+
+                            {/* Trending Hashtags Section */}
+                            <div class="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+                                <h3 class="font-bold text-sm mb-3 text-gray-700 dark:text-gray-300 flex items-center gap-2">
+                                    <i class="fa-solid fa-arrow-trend-up text-bdRed-500"></i>
+                                    {t.trending}
+                                </h3>
+                                <div class="flex flex-wrap gap-2">
+                                    {['#DhakaTech', '#BDCricket', '#StartupBD', '#SylhetTourism', '#CoxBazar'].map(tag => (
+                                        <button 
+                                            key={tag}
+                                            onClick={() => setSelectedTag(selectedTag === tag ? '' : tag)}
+                                            class={`text-xs px-2.5 py-1 rounded-full font-medium transition ${selectedTag === tag ? 'bg-bdGreen-500 text-white' : 'bg-gray-100 dark:bg-gray-700 text-bdGreen-600 dark:text-bdGreen-400 hover:bg-gray-200'}`}
+                                        >
+                                            {tag}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        </aside>
+
+                        {/* CENTER CONTENT AREA */}
+                        <main class="flex-1 max-w-2xl mx-auto w-full space-y-4">
+                            
+                            {/* TAG FILTER BANNER IF ACTIVE */}
+                            {selectedTag && (
+                                <div class="bg-bdGreen-50 dark:bg-gray-800 border border-bdGreen-300 dark:border-bdGreen-700 p-3 rounded-xl flex items-center justify-between">
+                                    <span class="text-sm font-semibold text-bdGreen-700 dark:text-bdGreen-400">
+                                        Filtering by hashtag: <span class="underline">{selectedTag}</span>
+                                    </span>
+                                    <button onClick={() => setSelectedTag('')} class="text-xs bg-bdGreen-600 text-white px-2.5 py-1 rounded-full">Clear filter</button>
+                                </div>
+                            )}
+
+                            {/* PAGE VIEW SWITCHER */}
+
+                            {/* 1. HOME FEED VIEW */}
+                            {activeTab === 'home' && (
+                                <>
+                                    {/* STORIES TRAY */}
+                                    <div class="flex gap-2 overflow-x-auto pb-2 scrollbar-none">
+                                        {/* Add Story Card */}
+                                        <div 
+                                            onClick={() => {
+                                                const url = prompt(lang === 'en' ? 'Enter Story Image URL:' : 'স্টোরি ছবির ইউআরএল দিন:');
+                                                if (url) handleAddStory(url);
+                                            }}
+                                            class="relative w-28 h-44 rounded-xl overflow-hidden shadow-sm shrink-0 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 cursor-pointer group hover:opacity-90 transition"
+                                        >
+                                            <img src={currentUser.avatar} class="w-full h-28 object-cover group-hover:scale-105 transition duration-300" />
+                                            <div class="absolute bottom-0 left-0 right-0 h-16 bg-white dark:bg-gray-800 flex flex-col items-center justify-center p-1">
+                                                <div class="w-8 h-8 rounded-full bg-bdGreen-500 text-white flex items-center justify-center -mt-8 border-2 border-white dark:border-gray-800 shadow">
+                                                    <i class="fa-solid fa-plus"></i>
+                                                </div>
+                                                <span class="text-xs font-medium text-center mt-1">{t.createStory}</span>
+                                            </div>
+                                        </div>
+
+                                        {/* Story Items */}
+                                        {stories.map(story => (
+                                            <div 
+                                                key={story.id}
+                                                onClick={() => setActiveStoryModal(story)}
+                                                class="relative w-28 h-44 rounded-xl overflow-hidden shadow shrink-0 cursor-pointer group"
+                                            >
+                                                <img src={story.media} class="w-full h-full object-cover group-hover:scale-105 transition duration-300" />
+                                                <div class="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/70"></div>
+                                                <img src={story.avatar} class="absolute top-2 left-2 w-8 h-8 rounded-full border-2 border-bdGreen-500 object-cover" />
+                                                <span class="absolute bottom-2 left-2 right-2 text-white text-xs font-semibold truncate">{story.name}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    {/* POST CREATOR BOX */}
+                                    <div class="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 space-y-3">
+                                        <div class="flex items-center gap-3">
+                                            <img src={currentUser.avatar} class="w-10 h-10 rounded-full object-cover" />
+                                            <button 
+                                                onClick={() => setIsCreatePostOpen(true)}
+                                                class="flex-1 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-left px-4 py-2.5 rounded-full text-sm text-gray-500 dark:text-gray-400 transition"
+                                            >
+                                                {t.createPost}
+                                            </button>
+                                        </div>
+                                        <hr class="border-gray-100 dark:border-gray-700" />
+                                        <div class="flex items-center justify-around text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-300">
+                                            <button onClick={() => setIsCreatePostOpen(true)} class="flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-gray-700 p-2 rounded-lg transition text-red-500">
+                                                <i class="fa-solid fa-video text-lg"></i>
+                                                <span>{t.liveVideo}</span>
+                                            </button>
+                                            <button onClick={() => setIsCreatePostOpen(true)} class="flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-gray-700 p-2 rounded-lg transition text-green-500">
+                                                <i class="fa-solid fa-images text-lg"></i>
+                                                <span>{t.photoVideo}</span>
+                                            </button>
+                                            <button onClick={() => setIsCreatePostOpen(true)} class="flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-gray-700 p-2 rounded-lg transition text-amber-500">
+                                                <i class="fa-solid fa-face-smile text-lg"></i>
+                                                <span>{t.feeling}</span>
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {/* POST FEED LIST */}
+                                    {filteredPosts.length === 0 ? (
+                                        <div class="text-center py-12 bg-white dark:bg-gray-800 rounded-xl shadow-sm">
+                                            <i class="fa-solid fa-folder-open text-4xl text-gray-300 mb-2"></i>
+                                            <p class="text-gray-500">No posts found matching your query.</p>
+                                        </div>
+                                    ) : (
+                                        filteredPosts.map(post => (
+                                            <PostCard 
+                                                key={post.id} 
+                                                post={post} 
+                                                t={t}
+                                                currentUser={currentUser}
+                                                onReaction={handleReaction}
+                                                onComment={handleAddComment}
+                                                activeReactionPostId={activeReactionPostId}
+                                                setActiveReactionPostId={setActiveReactionPostId}
+                                                showToast={showToast}
+                                            />
+                                        ))
+                                    )}
+                                </>
+                            )}
+
+                            {/* 2. USER PROFILE VIEW */}
+                            {activeTab === 'profile' && (
+                                <div class="space-y-4">
+                                    {/* Cover & Avatar Header */}
+                                    <div class="bg-white dark:bg-gray-800 rounded-xl overflow-hidden shadow-sm border border-gray-200 dark:border-gray-700">
+                                        <div class="relative h-48 sm:h-64 bg-gray-300">
+                                            <img src={currentUser.cover} class="w-full h-full object-cover" />
+                                            <button 
+                                                onClick={() => setIsEditProfileOpen(true)} 
+                                                class="absolute bottom-3 right-3 bg-black/60 hover:bg-black/80 text-white px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 backdrop-blur-sm"
+                                            >
+                                                <i class="fa-solid fa-camera"></i> Edit Cover
+                                            </button>
+                                        </div>
+                                        <div class="p-4 relative flex flex-col sm:flex-row items-center sm:items-end justify-between gap-4 -mt-16 sm:-mt-12 mb-2">
+                                            <div class="flex flex-col sm:flex-row items-center sm:items-end gap-4 text-center sm:text-left">
+                                                <img src={currentUser.avatar} class="w-28 h-28 rounded-full border-4 border-white dark:border-gray-800 object-cover shadow-md" />
+                                                <div class="space-y-1">
+                                                    <h2 class="text-2xl font-bold">{lang === 'bn' ? currentUser.nameBn : currentUser.name}</h2>
+                                                    <p class="text-sm text-gray-500 dark:text-gray-400 flex items-center justify-center sm:justify-start gap-1">
+                                                        <i class="fa-solid fa-location-dot text-bdRed-500"></i>
+                                                        {currentUser.location}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <button 
+                                                onClick={() => setIsEditProfileOpen(true)}
+                                                class="bg-bdGreen-600 hover:bg-bdGreen-700 text-white px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 shadow"
+                                            >
+                                                <i class="fa-solid fa-pen"></i>
+                                                <span>{t.editProfile}</span>
+                                            </button>
+                                        </div>
+                                        <div class="px-4 pb-4">
+                                            <p class="text-sm text-gray-600 dark:text-gray-300 italic">{currentUser.bio}</p>
+                                            <div class="flex gap-6 mt-4 pt-3 border-t border-gray-100 dark:border-gray-700 text-sm">
+                                                <div><strong class="text-gray-900 dark:text-gray-100">{currentUser.friendsCount}</strong> <span class="text-gray-500">Friends</span></div>
+                                                <div><strong class="text-gray-900 dark:text-gray-100">{currentUser.followersCount}</strong> <span class="text-gray-500">Followers</span></div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Profile User Posts */}
+                                    <div class="space-y-4">
+                                        <h3 class="font-bold text-lg">My Timeline</h3>
+                                        {posts.filter(p => p.userId === currentUser.id).map(post => (
+                                            <PostCard 
+                                                key={post.id} 
+                                                post={post} 
+                                                t={t}
+                                                currentUser={currentUser}
+                                                onReaction={handleReaction}
+                                                onComment={handleAddComment}
+                                                showToast={showToast}
+                                            />
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* 3. FRIENDS SYSTEM VIEW */}
+                            {activeTab === 'friends' && (
+                                <div class="space-y-4">
+                                    {/* Friend Requests Section */}
+                                    <div class="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+                                        <h3 class="font-bold text-lg mb-3">{t.friendRequests} ({friendRequests.length})</h3>
+                                        {friendRequests.length === 0 ? (
+                                            <p class="text-sm text-gray-500">No active friend requests right now.</p>
+                                        ) : (
+                                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                {friendRequests.map(req => (
+                                                    <div key={req.id} class="p-3 border border-gray-100 dark:border-gray-700 rounded-lg flex items-center gap-3">
+                                                        <img src={req.avatar} class="w-12 h-12 rounded-full object-cover" />
+                                                        <div class="flex-1 min-w-0">
+                                                            <h4 class="font-semibold text-sm truncate">{req.name}</h4>
+                                                            <p class="text-xs text-gray-500">{req.mutual} mutual friends</p>
+                                                            <div class="flex gap-2 mt-2">
+                                                                <button 
+                                                                    onClick={() => {
+                                                                        setFriendRequests(friendRequests.filter(r => r.id !== req.id));
+                                                                        showToast(`Accepted ${req.name}'s friend request!`);
+                                                                    }}
+                                                                    class="bg-bdGreen-600 text-white text-xs px-3 py-1 rounded-md font-medium"
+                                                                >
+                                                                    {t.accept}
+                                                                </button>
+                                                                <button 
+                                                                    onClick={() => setFriendRequests(friendRequests.filter(r => r.id !== req.id))}
+                                                                    class="bg-gray-200 dark:bg-gray-700 text-xs px-3 py-1 rounded-md font-medium"
+                                                                >
+                                                                    {t.decline}
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Suggested Friends Section */}
+                                    <div class="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+                                        <h3 class="font-bold text-lg mb-3">{t.suggestedFriends}</h3>
+                                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                            {usersList.filter(u => u.id !== currentUser.id).map(user => (
+                                                <div key={user.id} class="p-3 border border-gray-100 dark:border-gray-700 rounded-lg flex items-center justify-between">
+                                                    <div class="flex items-center gap-3">
+                                                        <img src={user.avatar} class="w-10 h-10 rounded-full object-cover" />
+                                                        <div>
+                                                            <h4 class="font-semibold text-sm">{user.name}</h4>
+                                                            <p class="text-xs text-gray-500">{user.location}</p>
+                                                        </div>
+                                                    </div>
+                                                    <button 
+                                                        onClick={() => showToast(`Friend request sent to ${user.name}`)}
+                                                        class="bg-bdGreen-50 dark:bg-gray-700 text-bdGreen-600 dark:text-bdGreen-400 text-xs px-3 py-1.5 rounded-lg font-medium hover:bg-bdGreen-100"
+                                                    >
+                                                        <i class="fa-solid fa-user-plus mr-1"></i> {t.addFriend}
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* 4. GROUPS & COMMUNITIES VIEW */}
+                            {activeTab === 'groups' && (
+                                <div class="space-y-4">
+                                    <div class="flex items-center justify-between">
+                                        <h3 class="font-bold text-lg">Communities & Groups</h3>
+                                        <button 
+                                            onClick={() => setIsCreateGroupOpen(true)}
+                                            class="bg-bdGreen-600 text-white px-3.5 py-1.5 rounded-lg text-sm font-semibold flex items-center gap-1.5 shadow"
+                                        >
+                                            <i class="fa-solid fa-plus"></i> Create Group
+                                        </button>
+                                    </div>
+
+                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        {groups.map(group => (
+                                            <div key={group.id} class="bg-white dark:bg-gray-800 rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 shadow-sm flex flex-col">
+                                                <img src={group.cover} class="h-28 w-full object-cover" />
+                                                <div class="p-3 flex-1 flex flex-col justify-between space-y-2">
+                                                    <div>
+                                                        <span class="text-[10px] font-bold uppercase tracking-wider bg-bdGreen-50 dark:bg-gray-700 text-bdGreen-600 px-2 py-0.5 rounded-full">
+                                                            {group.category}
+                                                        </span>
+                                                        <h4 class="font-bold text-base mt-1">{group.name}</h4>
+                                                        <p class="text-xs text-gray-500">{group.members}</p>
+                                                    </div>
+                                                    <button 
+                                                        onClick={() => {
+                                                            setGroups(groups.map(g => g.id === group.id ? { ...g, joined: !g.joined } : g));
+                                                            showToast(group.joined ? `Left ${group.name}` : `Joined ${group.name}!`);
+                                                        }}
+                                                        class={`w-full py-2 rounded-lg text-sm font-semibold transition ${group.joined ? 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300' : 'bg-bdGreen-600 text-white hover:bg-bdGreen-700'}`}
+                                                    >
+                                                        {group.joined ? t.joined : t.joinGroup}
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* 5. NOTIFICATIONS VIEW */}
+                            {activeTab === 'notifications' && (
+                                <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-200 dark:border-gray-700 space-y-3">
+                                    <div class="flex items-center justify-between mb-2">
+                                        <h3 class="font-bold text-lg">{t.notifications}</h3>
+                                        <button 
+                                            onClick={() => setNotifications(notifications.map(n => ({ ...n, read: true })))}
+                                            class="text-xs text-bdGreen-600 hover:underline"
+                                        >
+                                            Mark all as read
+                                        </button>
+                                    </div>
+                                    <div class="space-y-2">
+                                        {notifications.map(notif => (
+                                            <div 
+                                                key={notif.id}
+                                                class={`p-3 rounded-lg flex items-center justify-between transition cursor-pointer ${notif.read ? 'bg-transparent' : 'bg-bdGreen-50/50 dark:bg-gray-700/50 border-l-4 border-bdGreen-500'}`}
+                                            >
+                                                <div class="flex items-center gap-3">
+                                                    <img src={notif.avatar} class="w-10 h-10 rounded-full object-cover" />
+                                                    <div>
+                                                        <p class="text-sm">
+                                                            <strong class="font-semibold">{notif.user}</strong> {notif.action}
+                                                        </p>
+                                                        <span class="text-xs text-gray-400">{notif.time}</span>
+                                                    </div>
+                                                </div>
+                                                {!notif.read && <div class="w-2.5 h-2.5 bg-bdGreen-500 rounded-full"></div>}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </main>
+
+                        {/* RIGHT SIDEBAR (Desktop Active Contacts) */}
+                        <aside class="hidden xl:block w-72 shrink-0 space-y-4">
+                            {/* Online Messenger Contacts */}
+                            <div class="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+                                <h3 class="font-bold text-sm mb-3 text-gray-600 dark:text-gray-300 uppercase tracking-wider">{t.activeNow}</h3>
+                                <div class="space-y-3">
+                                    {usersList.filter(u => u.id !== currentUser.id).map(user => (
+                                        <div 
+                                            key={user.id} 
+                                            onClick={() => setActiveChatUser(user)}
+                                            class="flex items-center gap-3 p-1.5 rounded-lg cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition"
+                                        >
+                                            <div class="relative">
+                                                <img src={user.avatar} class="w-9 h-9 rounded-full object-cover" />
+                                                <span class="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-white dark:border-gray-800"></span>
+                                            </div>
+                                            <span class="text-sm font-medium">{user.name}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </aside>
+                    </div>
+
+                    {/* MOBILE BOTTOM NAVIGATION BAR */}
+                    <nav class="md:hidden sticky bottom-0 z-40 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 flex justify-around py-2">
+                        {[
+                            { id: 'home', icon: 'fa-house', label: t.home },
+                            { id: 'friends', icon: 'fa-user-group', label: t.friends },
+                            { id: 'groups', icon: 'fa-users', label: t.groups },
+                            { id: 'notifications', icon: 'fa-bell', label: t.notifications, badge: notifications.filter(n => !n.read).length },
+                            { id: 'profile', icon: 'fa-user', label: t.profile }
+                        ].map(tab => (
+                            <button 
+                                key={tab.id}
+                                onClick={() => setActiveTab(tab.id)}
+                                class={`relative flex flex-col items-center gap-1 text-xs font-medium ${activeTab === tab.id ? 'text-bdGreen-600 dark:text-bdGreen-500' : 'text-gray-500'}`}
+                            >
+                                <i class={`fa-solid ${tab.icon} text-lg`}></i>
+                                {tab.badge > 0 && (
+                                    <span class="absolute -top-1 right-2 bg-bdRed-500 text-white text-[10px] px-1 rounded-full">
+                                        {tab.badge}
+                                    </span>
+                                )}
+                            </button>
+                        ))}
+                    </nav>
+
+                    {/* MODALS & DRAWERS */}
+
+                    {/* STORY VIEWER MODAL */}
+                    {activeStoryModal && (
+                        <div class="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4">
+                            <button onClick={() => setActiveStoryModal(null)} class="absolute top-4 right-4 text-white text-2xl hover:text-gray-300">
+                                <i class="fa-solid fa-xmark"></i>
+                            </button>
+                            <div class="relative max-w-sm w-full h-[500px] rounded-2xl overflow-hidden">
+                                <img src={activeStoryModal.media} class="w-full h-full object-cover" />
+                                <div class="absolute top-4 left-4 flex items-center gap-3">
+                                    <img src={activeStoryModal.avatar} class="w-9 h-9 rounded-full border-2 border-bdGreen-500" />
+                                    <span class="text-white font-semibold text-sm drop-shadow">{activeStoryModal.name}</span>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* CREATE POST MODAL */}
+                    {isCreatePostOpen && (
+                        <CreatePostModal 
+                            t={t}
+                            currentUser={currentUser}
+                            onClose={() => setIsCreatePostOpen(false)}
+                            onSubmit={handleAddPost}
+                        />
+                    )}
+
+                    {/* EDIT PROFILE MODAL */}
+                    {isEditProfileOpen && (
+                        <EditProfileModal 
+                            t={t}
+                            currentUser={currentUser}
+                            onClose={() => setIsEditProfileOpen(false)}
+                            onSave={(updatedData) => {
+                                setCurrentUser({ ...currentUser, ...updatedData });
+                                setIsEditProfileOpen(false);
+                                showToast('Profile updated!');
+                            }}
+                        />
+                    )}
+
+                    {/* CREATE GROUP MODAL */}
+                    {isCreateGroupOpen && (
+                        <div class="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
+                            <div class="bg-white dark:bg-gray-800 rounded-xl p-5 w-full max-w-md space-y-4">
+                                <h3 class="font-bold text-lg">Create New Community Group</h3>
+                                <input type="text" placeholder="Group Name" id="gName" class="w-full p-2.5 rounded-lg border dark:bg-gray-700 dark:border-gray-600 text-sm" />
+                                <select id="gCat" class="w-full p-2.5 rounded-lg border dark:bg-gray-700 dark:border-gray-600 text-sm">
+                                    <option value="Technology">Technology</option>
+                                    <option value="Travel">Travel & Tourism</option>
+                                    <option value="Sports">Sports & Cricket</option>
+                                    <option value="General">General BD Community</option>
+                                </select>
+                                <div class="flex justify-end gap-2">
+                                    <button onClick={() => setIsCreateGroupOpen(false)} class="px-4 py-2 rounded-lg text-sm bg-gray-200 dark:bg-gray-700">Cancel</button>
+                                    <button 
+                                        onClick={() => {
+                                            const name = document.getElementById('gName').value;
+                                            const cat = document.getElementById('gCat').value;
+                                            if (name) {
+                                                setGroups([...groups, {
+                                                    id: 'g_' + Date.now(),
+                                                    name,
+                                                    members: '1 member',
+                                                    cover: 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=400&auto=format&fit=crop&q=80',
+                                                    category: cat,
+                                                    joined: true
+                                                }]);
+                                                setIsCreateGroupOpen(false);
+                                                showToast('Group created successfully!');
+                                            }
+                                        }}
+                                        class="px-4 py-2 rounded-lg text-sm bg-bdGreen-600 text-white font-semibold"
+                                    >
+                                        Create
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* MESSENGER POPUP DRAWER */}
+                    {activeChatUser && (
+                        <MessengerDrawer 
+                            user={activeChatUser} 
+                            currentUser={currentUser}
+                            onClose={() => setActiveChatUser(null)}
+                            t={t}
+                        />
+                    )}
+                </div>
+            );
+        }
+
+        // --- SUB-COMPONENT: POST CARD ---
+        function PostCard({ post, t, currentUser, onReaction, onComment, activeReactionPostId, setActiveReactionPostId, showToast }) {
+            const [commentInput, setCommentInput] = useState('');
+            const [showComments, setShowComments] = useState(false);
+
+            const reactionIcons = {
+                like: { icon: 'fa-thumbs-up', color: 'text-blue-500', label: 'Like' },
+                love: { icon: 'fa-heart', color: 'text-red-500', label: 'Love' },
+                haha: { icon: 'fa-face-laugh-squint', color: 'text-amber-500', label: 'Haha' },
+                wow: { icon: 'fa-face-surprise', color: 'text-amber-500', label: 'Wow' },
+                sad: { icon: 'fa-face-sad-tear', color: 'text-amber-500', label: 'Sad' },
+                angry: { icon: 'fa-face-angry', color: 'text-red-600', label: 'Angry' }
+            };
+
+            const totalReactions = Object.values(post.reactions).reduce((a, b) => a + b, 0);
+
+            return (
+                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4 space-y-3">
+                    {/* Header */}
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <img src={post.authorAvatar} class="w-10 h-10 rounded-full object-cover" />
+                            <div>
+                                <h4 class="font-semibold text-sm leading-tight">{post.authorName}</h4>
+                                <span class="text-xs text-gray-400 flex items-center gap-1">
+                                    {post.timestamp} • <i class="fa-solid fa-earth-americas text-[10px]"></i>
+                                </span>
+                            </div>
+                        </div>
+                        <button onClick={() => showToast('Post reported for moderation review.')} class="text-gray-400 hover:text-gray-600 p-1">
+                            <i class="fa-solid fa-ellipsis"></i>
+                        </button>
+                    </div>
+
+                    {/* Content */}
+                    <p class="text-sm leading-relaxed whitespace-pre-line">{post.content}</p>
+
+                    {/* Optional Image */}
+                    {post.image && (
+                        <div class="rounded-lg overflow-hidden max-h-96 bg-black/5">
+                            <img src={post.image} class="w-full h-full object-cover" />
+                        </div>
+                    )}
+
+                    {/* Reaction & Comment Count Stats Bar */}
+                    <div class="flex items-center justify-between text-xs text-gray-500 py-1 border-b border-gray-100 dark:border-gray-700">
+                        <div class="flex items-center gap-1">
+                            <span class="flex -space-x-1">
+                                <span class="w-4 h-4 rounded-full bg-blue-500 text-white flex items-center justify-center text-[8px]"><i class="fa-solid fa-thumbs-up"></i></span>
+                                <span class="w-4 h-4 rounded-full bg-red-500 text-white flex items-center justify-center text-[8px]"><i class="fa-solid fa-heart"></i></span>
+                            </span>
+                            <span>{totalReactions}</span>
+                        </div>
+                        <div class="flex gap-3">
+                            <button onClick={() => setShowComments(!showComments)}>{post.comments.length} {t.comment}s</button>
+                            <span>{post.sharesCount} {t.share}s</span>
+                        </div>
+                    </div>
+
+                    {/* Reaction Buttons Row */}
+                    <div class="relative flex items-center justify-around text-xs font-semibold text-gray-600 dark:text-gray-300 pt-1">
+                        
+                        {/* Reaction Picker Popup */}
+                        {activeReactionPostId === post.id && (
+                            <div class="absolute -top-10 left-2 bg-white dark:bg-gray-700 rounded-full px-3 py-1.5 shadow-xl border dark:border-gray-600 flex gap-3 reaction-popup z-30">
+                                {Object.keys(reactionIcons).map(type => (
+                                    <button 
+                                        key={type}
+                                        onClick={() => onReaction(post.id, type)}
+                                        class="hover:scale-125 transition duration-150 text-base"
+                                    >
+                                        <i class={`fa-solid ${reactionIcons[type].icon} ${reactionIcons[type].color}`}></i>
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+
+                        <button 
+                            onMouseEnter={() => setActiveReactionPostId(post.id)}
+                            onClick={() => onReaction(post.id, post.userReaction ? post.userReaction : 'like')}
+                            class="flex items-center gap-1.5 py-1.5 px-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition"
+                        >
+                            {post.userReaction ? (
+                                <>
+                                    <i class={`fa-solid ${reactionIcons[post.userReaction].icon} ${reactionIcons[post.userReaction].color}`}></i>
+                                    <span class={reactionIcons[post.userReaction].color}>{reactionIcons[post.userReaction].label}</span>
+                                </>
+                            ) : (
+                                <>
+                                    <i class="fa-regular fa-thumbs-up text-lg"></i>
+                                    <span>{t.like}</span>
+                                </>
+                            )}
+                        </button>
+
+                        <button onClick={() => setShowComments(!showComments)} class="flex items-center gap-1.5 py-1.5 px-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition">
+                            <i class="fa-regular fa-comment text-lg"></i>
+                            <span>{t.comment}</span>
+                        </button>
+
+                        <button onClick={() => showToast('Post link copied to clipboard!')} class="flex items-center gap-1.5 py-1.5 px-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition">
+                            <i class="fa-solid fa-share text-lg"></i>
+                            <span>{t.share}</span>
+                        </button>
+                    </div>
+
+                    {/* COMMENTS SECTION */}
+                    {showComments && (
+                        <div class="space-y-3 pt-2 border-t border-gray-100 dark:border-gray-700">
+                            {/* Input */}
+                            <div class="flex items-center gap-2">
+                                <img src={currentUser.avatar} class="w-8 h-8 rounded-full object-cover" />
+                                <div class="flex-1 flex items-center bg-gray-100 dark:bg-gray-700 rounded-full px-3 py-1.5">
+                                    <input 
+                                        type="text" 
+                                        placeholder={t.writeComment}
+                                        value={commentInput}
+                                        onChange={(e) => setCommentInput(e.target.value)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') {
+                                                onComment(post.id, commentInput);
+                                                setCommentInput('');
+                                            }
+                                        }}
+                                        class="bg-transparent border-none text-xs flex-1 focus:outline-none dark:text-gray-100"
+                                    />
+                                    <button 
+                                        onClick={() => {
+                                            onComment(post.id, commentInput);
+                                            setCommentInput('');
+                                        }} 
+                                        class="text-bdGreen-600 text-xs font-semibold ml-2"
+                                    >
+                                        Post
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Comment List */}
+                            <div class="space-y-2 max-h-48 overflow-y-auto">
+                                {post.comments.map(c => (
+                                    <div key={c.id} class="flex items-start gap-2">
+                                        <img src={c.userAvatar} class="w-7 h-7 rounded-full object-cover mt-1" />
+                                        <div class="bg-gray-100 dark:bg-gray-700 p-2.5 rounded-2xl text-xs max-w-[85%]">
+                                            <span class="font-bold block">{c.userName}</span>
+                                            <p class="mt-0.5">{c.text}</p>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        // --- SUB-COMPONENT: CREATE POST MODAL ---
+        function CreatePostModal({ t, currentUser, onClose, onSubmit }) {
+            const [content, setContent] = useState('');
+            const [image, setImage] = useState('');
+
+            return (
+                <div class="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
+                    <div class="bg-white dark:bg-gray-800 rounded-xl max-w-lg w-full p-4 space-y-4 shadow-xl">
+                        <div class="flex items-center justify-between border-b pb-2 dark:border-gray-700">
+                            <h3 class="font-bold text-lg">{t.createPost}</h3>
+                            <button onClick={onClose} class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <img src={currentUser.avatar} class="w-10 h-10 rounded-full object-cover" />
+                            <div>
+                                <h4 class="font-semibold text-sm">{currentUser.name}</h4>
+                                <span class="text-xs bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded text-gray-500">Public 🌐</span>
+                            </div>
+                        </div>
+                        <textarea 
+                            rows="4" 
+                            placeholder={t.createPost}
+                            value={content}
+                            onChange={(e) => setContent(e.target.value)}
+                            class="w-full p-2 bg-transparent focus:outline-none text-sm dark:text-gray-100 resize-none"
+                        ></textarea>
+                        <input 
+                            type="text" 
+                            placeholder="Optional Image URL (https://...)" 
+                            value={image}
+                            onChange={(e) => setImage(e.target.value)}
+                            class="w-full text-xs p-2.5 rounded-lg border dark:bg-gray-700 dark:border-gray-600"
+                        />
+                        <button 
+                            disabled={!content.trim()}
+                            onClick={() => onSubmit({ content, image })}
+                            class="w-full bg-bdGreen-600 text-white font-semibold py-2 rounded-lg text-sm disabled:opacity-50 hover:bg-bdGreen-700 transition"
+                        >
+                            {t.post}
+                        </button>
+                    </div>
+                </div>
+            );
+        }
+
+        // --- SUB-COMPONENT: EDIT PROFILE MODAL ---
+        function EditProfileModal({ t, currentUser, onClose, onSave }) {
+            const [name, setName] = useState(currentUser.name);
+            const [bio, setBio] = useState(currentUser.bio);
+            const [location, setLocation] = useState(currentUser.location);
+            const [avatar, setAvatar] = useState(currentUser.avatar);
+            const [cover, setCover] = useState(currentUser.cover);
+
+            return (
+                <div class="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
+                    <div class="bg-white dark:bg-gray-800 rounded-xl max-w-md w-full p-5 space-y-4 max-h-[90vh] overflow-y-auto">
+                        <div class="flex items-center justify-between border-b pb-2 dark:border-gray-700">
+                            <h3 class="font-bold text-lg">{t.editProfile}</h3>
+                            <button onClick={onClose} class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-xmark"></i></button>
+                        </div>
+                        <div class="space-y-3 text-xs">
+                            <div>
+                                <label class="font-semibold block mb-1">Name</label>
+                                <input type="text" value={name} onChange={(e) => setName(e.target.value)} class="w-full p-2 rounded border dark:bg-gray-700 dark:border-gray-600" />
+                            </div>
+                            <div>
+                                <label class="font-semibold block mb-1">{t.bio}</label>
+                                <textarea value={bio} onChange={(e) => setBio(e.target.value)} class="w-full p-2 rounded border dark:bg-gray-700 dark:border-gray-600"></textarea>
+                            </div>
+                            <div>
+                                <label class="font-semibold block mb-1">{t.location}</label>
+                                <input type="text" value={location} onChange={(e) => setLocation(e.target.value)} class="w-full p-2 rounded border dark:bg-gray-700 dark:border-gray-600" />
+                            </div>
+                            <div>
+                                <label class="font-semibold block mb-1">{t.profilePhoto} URL</label>
+                                <input type="text" value={avatar} onChange={(e) => setAvatar(e.target.value)} class="w-full p-2 rounded border dark:bg-gray-700 dark:border-gray-600" />
+                            </div>
+                            <div>
+                                <label class="font-semibold block mb-1">{t.coverPhoto} URL</label>
+                                <input type="text" value={cover} onChange={(e) => setCover(e.target.value)} class="w-full p-2 rounded border dark:bg-gray-700 dark:border-gray-600" />
+                            </div>
+                        </div>
+                        <div class="flex justify-end gap-2 pt-2">
+                            <button onClick={onClose} class="px-4 py-1.5 rounded text-xs bg-gray-200 dark:bg-gray-700">Cancel</button>
+                            <button onClick={() => onSave({ name, bio, location, avatar, cover })} class="px-4 py-1.5 rounded text-xs bg-bdGreen-600 text-white font-semibold">{t.saveChanges}</button>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // --- SUB-COMPONENT: REAL-TIME SIMULATED MESSENGER DRAWER ---
+        function MessengerDrawer({ user, currentUser, onClose, t }) {
+            const [messages, setMessages] = useState([
+                { id: 'm1', sender: user.id, text: 'Assalamu Alaikum! How are you doing today?', time: '10:00 AM' }
+            ]);
+            const [inputText, setInputText] = useState('');
+
+            const sendMessage = () => {
+                if (!inputText.trim()) return;
+                const newMsg = { id: 'm_' + Date.now(), sender: currentUser.id, text: inputText, time: 'Just now' };
+                setMessages([...messages, newMsg]);
+                setInputText('');
+
+                // Automated reply simulation
+                setTimeout(() => {
+                    setMessages(prev => [...prev, {
+                        id: 'm_reply_' + Date.now(),
+                        sender: user.id,
+                        text: 'Thanks for reaching out! ConnectBD messenger is super smooth 🚀',
+                        time: 'Just now'
+                    }]);
+                }, 1200);
+            };
+
+            return (
+                <div class="fixed bottom-0 right-4 z-50 w-80 sm:w-96 bg-white dark:bg-gray-800 rounded-t-xl shadow-2xl border border-gray-200 dark:border-gray-700 flex flex-col h-96">
+                    {/* Header */}
+                    <div class="p-3 bg-bdGreen-600 text-white rounded-t-xl flex items-center justify-between shadow">
+                        <div class="flex items-center gap-2">
+                            <img src={user.avatar} class="w-8 h-8 rounded-full object-cover border" />
+                            <div>
+                                <h4 class="font-bold text-xs">{user.name}</h4>
+                                <span class="text-[10px] opacity-80">{t.activeNow}</span>
+                            </div>
+                        </div>
+                        <button onClick={onClose} class="hover:text-gray-200"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+
+                    {/* Messages Body */}
+                    <div class="flex-1 p-3 overflow-y-auto space-y-2 text-xs">
+                        {messages.map(m => (
+                            <div key={m.id} class={`flex ${m.sender === currentUser.id ? 'justify-end' : 'justify-start'}`}>
+                                <div class={`max-w-[75%] p-2.5 rounded-xl ${m.sender === currentUser.id ? 'bg-bdGreen-500 text-white rounded-br-none' : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-100 rounded-bl-none'}`}>
+                                    <p>{m.text}</p>
+                                    <span class="text-[9px] opacity-60 block text-right mt-1">{m.time}</span>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Input Area */}
+                    <div class="p-2 border-t dark:border-gray-700 flex items-center gap-2">
+                        <input 
+                            type="text" 
+                            placeholder={t.typeMessage}
+                            value={inputText}
+                            onChange={(e) => setInputText(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
+                            class="flex-1 text-xs bg-gray-100 dark:bg-gray-700 rounded-full px-3 py-2 focus:outline-none dark:text-gray-100"
+                        />
+                        <button onClick={sendMessage} class="w-8 h-8 rounded-full bg-bdGreen-500 text-white flex items-center justify-center text-xs">
+                            <i class="fa-solid fa-paper-plane"></i>
+                        </button>
+                    </div>
+                </div>
+            );
+        }
+
+        // Render React Application
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html> 
